@@ -7,7 +7,7 @@ contract DeliveryOrders {
         string fromLocation;
         string toLocation;
         uint256 distance; // in kilometers
-        uint256 price;    // in wei
+        uint256 price; // in wei
         uint256 unlockTime; // TimeLock: timestamp when the order can be completed
         bool isCompleted;
     }

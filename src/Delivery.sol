@@ -6,9 +6,8 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/Ag
 /**
  * @title DeliveryService
  * @author Teoh Yu Xiang, Teo Ka Teakm, Toh Xin Ping and Tan Chin Sea
- * @notice 
+ * @notice
  */
-
 contract DeliveryService {
     // constuructor
     constructor(address _priceFeed) {
@@ -47,7 +46,6 @@ contract DeliveryService {
     // variables
     AggregatorV3Interface private s_priceFeed;
 
-
     // Events
     event DeliveryScheduled(
         uint256 deliveryID,
@@ -57,11 +55,7 @@ contract DeliveryService {
         uint256 price,
         uint256 scheduledTime
     );
-    event DeliveryModified(
-        uint256 deliveryID,
-        uint256 newScheduledTime,
-        uint256 remainingAttempts
-    );
+    event DeliveryModified(uint256 deliveryID, uint256 newScheduledTime, uint256 remainingAttempts);
     event DeliveryCancelled(uint256 deliveryID, address indexed customer);
     event DeliveryCompleted(uint256 deliveryID, address indexed customer);
 
@@ -92,7 +86,7 @@ contract DeliveryService {
     {
         // Check minimum delay
         require(scheduledTime > block.timestamp + MIN_DELAY, "Scheduled time must meet minimum delay.");
-        
+
         // Check user cooling-off period
         if (userCancellations[msg.sender] >= CANCELLATION_LIMIT) {
             require(block.timestamp > lastCancellationTime[msg.sender] + COOLING_PERIOD, "Cooling-off period active.");
@@ -118,7 +112,11 @@ contract DeliveryService {
     }
 
     /// @notice Modify an existing delivery
-    function modifyDelivery(uint256 deliveryID, uint256 newScheduledTime) external onlyCustomer(deliveryID) canModify(deliveryID) {
+    function modifyDelivery(uint256 deliveryID, uint256 newScheduledTime)
+        external
+        onlyCustomer(deliveryID)
+        canModify(deliveryID)
+    {
         require(newScheduledTime > block.timestamp + MIN_DELAY, "New scheduled time must meet minimum delay.");
 
         Delivery storage delivery = deliveries[deliveryID];
@@ -157,15 +155,14 @@ contract DeliveryService {
 
     /// @notice Get cooling-off period status
     function isCoolingOff(address user) external view returns (bool) {
-        return userCancellations[user] >= CANCELLATION_LIMIT &&
-               block.timestamp < lastCancellationTime[user] + COOLING_PERIOD;
+        return userCancellations[user] >= CANCELLATION_LIMIT
+            && block.timestamp < lastCancellationTime[user] + COOLING_PERIOD;
     }
 
     /// @notice View delivery details
     function getDelivery(uint256 deliveryID) external view returns (Delivery memory) {
         return deliveries[deliveryID];
     }
-
 
     // Getter
     function getMinimumDelay() external pure returns (uint256) {
@@ -183,7 +180,6 @@ contract DeliveryService {
     function getCoolingPeriod() external pure returns (uint256) {
         return COOLING_PERIOD;
     }
-    
 
     // Fallback to accept payments
     receive() external payable {}
