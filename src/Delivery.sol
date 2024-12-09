@@ -93,7 +93,8 @@ contract DeliveryService {
 
     /// @notice Schedule a new delivery
     function scheduleDelivery(string memory fromAddress, string memory toAddress, uint256 price, uint256 scheduledTime)
-        public payable
+        public
+        payable
         returns (uint256)
     {
         // Check minimum delay
@@ -153,16 +154,13 @@ contract DeliveryService {
         emit DeliveryCancelled(deliveryID, msg.sender);
 
         // Refund the customer
-        if (block.timestamp +  7200 > delivery.scheduledTime) {
+        if (block.timestamp + 7200 > delivery.scheduledTime) {
             payable(msg.sender).transfer(delivery.price);
-        }
-        else if (block.timestamp +  3600 > delivery.scheduledTime){
-            payable(msg.sender).transfer(delivery.price *3 / 4);
-        }
-        else {
+        } else if (block.timestamp + 3600 > delivery.scheduledTime) {
+            payable(msg.sender).transfer(delivery.price * 3 / 4);
+        } else {
             payable(msg.sender).transfer(delivery.price / 2);
         }
-
     }
 
     /// @notice Complete the delivery (can only be done after the scheduled time)
@@ -177,7 +175,7 @@ contract DeliveryService {
     }
 
     /// @notice Delivered to the customer
-    function deliveredDelivery(uint256 deliveryID) external onlyOwner() {
+    function deliveredDelivery(uint256 deliveryID) external onlyOwner {
         Delivery storage delivery = deliveries[deliveryID];
         require(block.timestamp >= delivery.scheduledTime, "Cannot complete before scheduled time.");
         require(!delivery.isDelivered, "Delivery already delivered.");
@@ -186,10 +184,9 @@ contract DeliveryService {
     }
 
     /// @notice Withdraw funds
-    function withdrawFunds() external onlyOwner() {
+    function withdrawFunds() external onlyOwner {
         payable(i_ownerContract).transfer(address(this).balance);
     }
-
 
     /// @notice Get cooling-off period status
     function isCoolingOff(address user) external view returns (bool) {

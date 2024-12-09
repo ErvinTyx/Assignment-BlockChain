@@ -6,8 +6,7 @@ import {DeliveryService} from "../src/Delivery.sol";
 import {HelperConfig} from "../script/HelperConfig.s.sol";
 
 contract DeployDelivery is Script {
-    
-    function run() external returns(DeliveryService){
+    function run() external returns (DeliveryService) {
         HelperConfig helperConfig = new HelperConfig();
         address ethUsdPriceFeed = helperConfig.networkConfig();
 
