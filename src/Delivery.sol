@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import {PriceConverter} from "./PriceConverter.sol";
 
 /**
  * @title DeliveryService
@@ -9,6 +10,9 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/Ag
  * @notice
  */
 contract DeliveryService {
+    // Type Declarations
+    using PriceConverter for uint256;
+
     // constuructor
     constructor(address _priceFeed) {
         s_priceFeed = AggregatorV3Interface(_priceFeed);
@@ -22,7 +26,9 @@ contract DeliveryService {
         string toAddress;
         uint256 price;
         uint256 scheduledTime; // Scheduled execution time (timestamp)
+        uint256 completedTime;
         uint256 modificationAttempts;
+        bool isDelivered;
         bool isCompleted;
         bool isCancelled;
         uint256 createdTime;
@@ -58,6 +64,7 @@ contract DeliveryService {
     event DeliveryModified(uint256 deliveryID, uint256 newScheduledTime, uint256 remainingAttempts);
     event DeliveryCancelled(uint256 deliveryID, address indexed customer);
     event DeliveryCompleted(uint256 deliveryID, address indexed customer);
+    event DeliveryDelivered(uint256 deliveryID);
 
     // Modifiers
     modifier onlyCustomer(uint256 deliveryID) {
@@ -77,11 +84,16 @@ contract DeliveryService {
         _;
     }
 
+    modifier onlyOwner() {
+        require(msg.sender == i_ownerContract, "Only the owner can call this function.");
+        _;
+    }
+
     // Core Functions
 
     /// @notice Schedule a new delivery
     function scheduleDelivery(string memory fromAddress, string memory toAddress, uint256 price, uint256 scheduledTime)
-        external
+        public payable
         returns (uint256)
     {
         // Check minimum delay
@@ -93,6 +105,7 @@ contract DeliveryService {
         }
 
         // Check price
+        require(msg.value.getConversionRate(s_priceFeed) >= price, "Not enough money to cover delivery cost.");
 
         uint256 deliveryID = totalDeliveries++;
         deliveries[deliveryID] = Delivery({
@@ -101,8 +114,10 @@ contract DeliveryService {
             toAddress: toAddress,
             price: price,
             scheduledTime: scheduledTime,
+            completedTime: 0,
             modificationAttempts: 0,
             isCompleted: false,
+            isDelivered: false,
             isCancelled: false,
             createdTime: block.timestamp
         });
@@ -137,21 +152,44 @@ contract DeliveryService {
 
         emit DeliveryCancelled(deliveryID, msg.sender);
 
-        // Refund logic (simulate with a transfer)
-        payable(msg.sender).transfer(delivery.price / 2); // Example refund: 50% of price
+        // Refund the customer
+        if (block.timestamp +  7200 > delivery.scheduledTime) {
+            payable(msg.sender).transfer(delivery.price);
+        }
+        else if (block.timestamp +  3600 > delivery.scheduledTime){
+            payable(msg.sender).transfer(delivery.price *3 / 4);
+        }
+        else {
+            payable(msg.sender).transfer(delivery.price / 2);
+        }
+
     }
 
     /// @notice Complete the delivery (can only be done after the scheduled time)
     function completeDelivery(uint256 deliveryID) external onlyCustomer(deliveryID) {
         Delivery storage delivery = deliveries[deliveryID];
-        require(block.timestamp >= delivery.scheduledTime, "Cannot complete before scheduled time.");
-        require(!delivery.isCompleted, "Delivery already completed.");
         require(!delivery.isCancelled, "Delivery is cancelled.");
+        require(delivery.isDelivered, "Delivery not delivered yet.");
 
         delivery.isCompleted = true;
 
         emit DeliveryCompleted(deliveryID, msg.sender);
     }
+
+    /// @notice Delivered to the customer
+    function deliveredDelivery(uint256 deliveryID) external onlyOwner() {
+        Delivery storage delivery = deliveries[deliveryID];
+        require(block.timestamp >= delivery.scheduledTime, "Cannot complete before scheduled time.");
+        require(!delivery.isDelivered, "Delivery already delivered.");
+        delivery.isDelivered = true;
+        emit DeliveryDelivered(deliveryID);
+    }
+
+    /// @notice Withdraw funds
+    function withdrawFunds() external onlyOwner() {
+        payable(i_ownerContract).transfer(address(this).balance);
+    }
+
 
     /// @notice Get cooling-off period status
     function isCoolingOff(address user) external view returns (bool) {
