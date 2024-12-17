@@ -4,10 +4,10 @@ pragma solidity ^0.8.18;
 import {Script} from "lib/forge-std/src/Script.sol";
 import {MockV3Aggregator} from "../test/mock/MockV3Aggregator.sol";
 
-contract HelperConfig is Script {
+contract HelperConfig is Script{
     //Constants
     uint8 public constant DECIMALS = 8;
-    uint256 public constant INITIAL_PRICE = 2e18;
+    int256 public constant INITIAL_PRICE = 2000e8;
 
     // Struct
     struct NetworkConfig {
@@ -15,16 +15,16 @@ contract HelperConfig is Script {
     }
 
     // Variable
-    NetworkConfig public networkConfig;
+    NetworkConfig public activeNetworkConfig;
 
     // Constructor
     constructor() {
         if (block.chainid == 11155111) {
-            networkConfig = getSepoliaEthConfig();
+            activeNetworkConfig = getSepoliaEthConfig();
         } else if (block.chainid == 1) {
-            networkConfig = getMainNetEthConfig();
-        } else if (block.chainid == 31337) {
-            networkConfig = getOrCreateAnvilEthCongif();
+            activeNetworkConfig = getMainNetEthConfig();
+        } else{
+            activeNetworkConfig = getOrCreateAnvilEthCongif();
         }
     }
 
@@ -44,13 +44,17 @@ contract HelperConfig is Script {
 
     function getOrCreateAnvilEthCongif() public returns (NetworkConfig memory) {
         // check if price feed exists
-        if (networkConfig.priceFeed == address(0)) {
-            return networkConfig;
+        if (activeNetworkConfig.priceFeed != address(0)) {
+            return activeNetworkConfig;
         }
 
         vm.startBroadcast();
-        NetworkConfig memory anvilEthConfig = NetworkConfig({priceFeed: 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419});
+        MockV3Aggregator mockV3Aggregator = new MockV3Aggregator(DECIMALS, INITIAL_PRICE);
         vm.stopBroadcast();
+
+        NetworkConfig memory anvilEthConfig = NetworkConfig({
+            priceFeed: address(mockV3Aggregator)
+        });
         return anvilEthConfig;
     }
 }

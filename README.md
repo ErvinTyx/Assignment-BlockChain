@@ -13,13 +13,7 @@ wsl --install
 curl -L https://foundry.paradigm.xyz
 ```
 
-- installation for testing libary package
+- installation libary on this project
 ```bash
-forge install foundry-rs/forge-std.git@1.9.4 --no-commit
+make build
 ```
-
-- installation for getting price feed from the chain [link](https://docs.chain.link/data-feeds/using-data-feeds)
-```bash
-forge install smartcontractkit/chainlink-brownie-contracts@1.3.0 --no-commit
-```
-

@@ -242,4 +242,12 @@ contract DeliveryService {
     function getCoolingPeriod() external pure returns (uint256) {
         return COOLING_PERIOD;
     }
+    
+    function getVersion() public view returns (uint256) {
+        return s_priceFeed.version();
+    }
+    
+    function getPriceFeed() public view returns (AggregatorV3Interface) {
+        return s_priceFeed;
+    }
 }
