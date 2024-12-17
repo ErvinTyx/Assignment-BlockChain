@@ -1,3 +1,24 @@
+// Layout of Contract:
+// version
+// imports
+// errors
+// interfaces, libraries, contracts
+// Type declarations
+// State variables
+// Events
+// Modifiers
+// Functions
+
+// Layout of Functions:
+// constructor
+// receive function (if exists)
+// fallback function (if exists)
+// external
+// public
+// internal
+// private
+// view & pure functions
+
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
@@ -10,13 +31,19 @@ import {PriceConverter} from "./PriceConverter.sol";
  * @notice
  */
 contract DeliveryService {
-    // Type Declarations
+    /* interfaces, libraries, contracts */
+    // Contract variables
+    AggregatorV3Interface private s_priceFeed;
+
+    /* Type Declarations*/
     using PriceConverter for uint256;
 
-    // constuructor
-    constructor(address _priceFeed) {
-        s_priceFeed = AggregatorV3Interface(_priceFeed);
-        i_ownerContract = msg.sender;
+    enum StatusDelivery {
+        Scheduled,
+        Cancelled,
+        Delivery,
+        DeliveryCompleted,
+        Completed
     }
 
     // Structs
@@ -28,12 +55,11 @@ contract DeliveryService {
         uint256 scheduledTime; // Scheduled execution time (timestamp)
         uint256 completedTime;
         uint256 modificationAttempts;
-        bool isDelivered;
-        bool isCompleted;
-        bool isCancelled;
+        StatusDelivery status;
         uint256 createdTime;
     }
 
+    /* State variables*/
     // Mappings
     mapping(uint256 => Delivery) public deliveries; // deliveryID -> Delivery
     mapping(address => uint256) public userCancellations; // Tracks cancellations per user
@@ -48,9 +74,6 @@ contract DeliveryService {
 
     // immutable variables
     address private immutable i_ownerContract;
-
-    // variables
-    AggregatorV3Interface private s_priceFeed;
 
     // Events
     event DeliveryScheduled(
@@ -89,7 +112,80 @@ contract DeliveryService {
         _;
     }
 
+    /*Functions */
+    // constructor
+    constructor(address _priceFeed) {
+        s_priceFeed = AggregatorV3Interface(_priceFeed);
+        i_ownerContract = msg.sender;
+    }
     // Core Functions
+
+    /// @notice Modify an existing delivery
+    function modifyDelivery(uint256 deliveryID, uint256 newScheduledTime)
+        external
+        onlyCustomer(deliveryID)
+        canModify(deliveryID)
+    {
+        require(newScheduledTime > block.timestamp + MIN_DELAY, "New scheduled time must meet minimum delay.");
+
+        Delivery storage delivery = deliveries[deliveryID];
+        delivery.scheduledTime = newScheduledTime;
+        delivery.modificationAttempts++;
+
+        emit DeliveryModified(deliveryID, newScheduledTime, MODIFICATION_LIMIT - delivery.modificationAttempts);
+    }
+
+    /// @notice Cancel a delivery before the scheduled time
+    function cancelDelivery(uint256 deliveryID) external onlyCustomer(deliveryID) canCancel(deliveryID) {
+        Delivery storage delivery = deliveries[deliveryID];
+        require(delivery.status == StatusDelivery.Cancelled, "Delivery already cancelled.");
+
+        delivery.status = StatusDelivery.Cancelled;
+        userCancellations[msg.sender]++;
+        lastCancellationTime[msg.sender] = block.timestamp;
+
+        emit DeliveryCancelled(deliveryID, msg.sender);
+
+        // Refund the customer
+        if (block.timestamp + 7200 > delivery.scheduledTime) {
+            payable(msg.sender).transfer(delivery.price);
+        } else if (block.timestamp + 3600 > delivery.scheduledTime) {
+            payable(msg.sender).transfer(delivery.price * 3 / 4);
+        } else {
+            payable(msg.sender).transfer(delivery.price / 2);
+        }
+    }
+
+    /// @notice Complete the delivery (can only be done after the scheduled time)
+    function completeDelivery(uint256 deliveryID) external onlyCustomer(deliveryID) {
+        Delivery storage delivery = deliveries[deliveryID];
+        require(delivery.status == StatusDelivery.Cancelled, "Delivery is cancelled.");
+        require(delivery.status == StatusDelivery.Delivery, "Delivery not delivered yet.");
+
+        delivery.status = StatusDelivery.Completed;
+
+        emit DeliveryCompleted(deliveryID, msg.sender);
+    }
+
+    /// @notice Delivered to the customer
+    function deliveredDelivery(uint256 deliveryID) external onlyOwner {
+        Delivery storage delivery = deliveries[deliveryID];
+        require(block.timestamp >= delivery.scheduledTime, "Cannot complete before scheduled time.");
+        require(delivery.status == StatusDelivery.Completed, "Delivery already delivered.");
+        delivery.status = StatusDelivery.DeliveryCompleted;
+        emit DeliveryDelivered(deliveryID);
+    }
+
+    /// @notice Withdraw funds
+    function withdrawFunds() external onlyOwner {
+        payable(i_ownerContract).transfer(address(this).balance);
+    }
+
+    /// @notice Get cooling-off period status
+    function isCoolingOff(address user) external view returns (bool) {
+        return userCancellations[user] >= CANCELLATION_LIMIT
+            && block.timestamp < lastCancellationTime[user] + COOLING_PERIOD;
+    }
 
     /// @notice Schedule a new delivery
     function scheduleDelivery(string memory fromAddress, string memory toAddress, uint256 price, uint256 scheduledTime)
@@ -117,81 +213,12 @@ contract DeliveryService {
             scheduledTime: scheduledTime,
             completedTime: 0,
             modificationAttempts: 0,
-            isCompleted: false,
-            isDelivered: false,
-            isCancelled: false,
+            status: StatusDelivery.Scheduled,
             createdTime: block.timestamp
         });
 
         emit DeliveryScheduled(deliveryID, msg.sender, fromAddress, toAddress, price, scheduledTime);
         return deliveryID;
-    }
-
-    /// @notice Modify an existing delivery
-    function modifyDelivery(uint256 deliveryID, uint256 newScheduledTime)
-        external
-        onlyCustomer(deliveryID)
-        canModify(deliveryID)
-    {
-        require(newScheduledTime > block.timestamp + MIN_DELAY, "New scheduled time must meet minimum delay.");
-
-        Delivery storage delivery = deliveries[deliveryID];
-        delivery.scheduledTime = newScheduledTime;
-        delivery.modificationAttempts++;
-
-        emit DeliveryModified(deliveryID, newScheduledTime, MODIFICATION_LIMIT - delivery.modificationAttempts);
-    }
-
-    /// @notice Cancel a delivery before the scheduled time
-    function cancelDelivery(uint256 deliveryID) external onlyCustomer(deliveryID) canCancel(deliveryID) {
-        Delivery storage delivery = deliveries[deliveryID];
-        require(!delivery.isCancelled, "Delivery already cancelled.");
-
-        delivery.isCancelled = true;
-        userCancellations[msg.sender]++;
-        lastCancellationTime[msg.sender] = block.timestamp;
-
-        emit DeliveryCancelled(deliveryID, msg.sender);
-
-        // Refund the customer
-        if (block.timestamp + 7200 > delivery.scheduledTime) {
-            payable(msg.sender).transfer(delivery.price);
-        } else if (block.timestamp + 3600 > delivery.scheduledTime) {
-            payable(msg.sender).transfer(delivery.price * 3 / 4);
-        } else {
-            payable(msg.sender).transfer(delivery.price / 2);
-        }
-    }
-
-    /// @notice Complete the delivery (can only be done after the scheduled time)
-    function completeDelivery(uint256 deliveryID) external onlyCustomer(deliveryID) {
-        Delivery storage delivery = deliveries[deliveryID];
-        require(!delivery.isCancelled, "Delivery is cancelled.");
-        require(delivery.isDelivered, "Delivery not delivered yet.");
-
-        delivery.isCompleted = true;
-
-        emit DeliveryCompleted(deliveryID, msg.sender);
-    }
-
-    /// @notice Delivered to the customer
-    function deliveredDelivery(uint256 deliveryID) external onlyOwner {
-        Delivery storage delivery = deliveries[deliveryID];
-        require(block.timestamp >= delivery.scheduledTime, "Cannot complete before scheduled time.");
-        require(!delivery.isDelivered, "Delivery already delivered.");
-        delivery.isDelivered = true;
-        emit DeliveryDelivered(deliveryID);
-    }
-
-    /// @notice Withdraw funds
-    function withdrawFunds() external onlyOwner {
-        payable(i_ownerContract).transfer(address(this).balance);
-    }
-
-    /// @notice Get cooling-off period status
-    function isCoolingOff(address user) external view returns (bool) {
-        return userCancellations[user] >= CANCELLATION_LIMIT
-            && block.timestamp < lastCancellationTime[user] + COOLING_PERIOD;
     }
 
     /// @notice View delivery details
@@ -215,7 +242,4 @@ contract DeliveryService {
     function getCoolingPeriod() external pure returns (uint256) {
         return COOLING_PERIOD;
     }
-
-    // Fallback to accept payments
-    receive() external payable {}
 }
