@@ -210,7 +210,7 @@ contract DeliveryTest is Test {
     function testdeliveredDeliveryCompleted() public ScheduledDelivery {
         vm.warp(4 hours);
         vm.roll(block.number + 1);
-        
+
         vm.prank(delivery.getOwner());
         delivery.outFordelivery(deliveryID);
         vm.prank(delivery.getOwner());
