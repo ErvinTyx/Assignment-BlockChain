@@ -23,6 +23,7 @@
 pragma solidity ^0.8.18;
 
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {PriceConverter} from "./PriceConverter.sol";
 
 /**
@@ -31,6 +32,8 @@ import {PriceConverter} from "./PriceConverter.sol";
  * @notice
  */
 contract DeliveryService {
+    error DeliveryService__AlreadyCancelled();
+
     /* interfaces, libraries, contracts */
     // Contract variables
     AggregatorV3Interface private s_priceFeed;
@@ -138,22 +141,39 @@ contract DeliveryService {
     /// @notice Cancel a delivery before the scheduled time
     function cancelDelivery(uint256 deliveryID) external onlyCustomer(deliveryID) canCancel(deliveryID) {
         Delivery storage delivery = deliveries[deliveryID];
-        require(delivery.status == StatusDelivery.Cancelled, "Delivery already cancelled.");
 
+        // Ensure not already cancelled
+        if (delivery.status == StatusDelivery.Cancelled) revert DeliveryService__AlreadyCancelled();
+
+        // Cache `scheduledTime` and `price` for gas efficiency
+        uint256 scheduledTime = delivery.scheduledTime;
+        uint256 price = delivery.price;
+
+        // Mark as cancelled
         delivery.status = StatusDelivery.Cancelled;
-        userCancellations[msg.sender]++;
-        lastCancellationTime[msg.sender] = block.timestamp;
+
+        // Update user cancellation state
+        unchecked {
+            userCancellations[msg.sender]++;
+            lastCancellationTime[msg.sender] = block.timestamp;
+        }
 
         emit DeliveryCancelled(deliveryID, msg.sender);
 
-        // Refund the customer
-        if (block.timestamp + 7200 > delivery.scheduledTime) {
-            payable(msg.sender).transfer(delivery.price);
-        } else if (block.timestamp + 3600 > delivery.scheduledTime) {
-            payable(msg.sender).transfer(delivery.price * 3 / 4);
+        // Refund calculation
+        uint256 refund;
+        uint256 timeRemaining = scheduledTime - block.timestamp;
+
+        if (timeRemaining <= 2 hours) {
+            refund = price; // Full refund
+        } else if (timeRemaining <= 3 hours) {
+            refund = (price * 75) / 100; // 75% refund
         } else {
-            payable(msg.sender).transfer(delivery.price / 2);
+            refund = (price * 50) / 100; // 50% refund
         }
+
+        // Transfer the refund
+        payable(msg.sender).transfer(refund);
     }
 
     /// @notice Complete the delivery (can only be done after the scheduled time)
@@ -193,6 +213,9 @@ contract DeliveryService {
         payable
         returns (uint256)
     {
+        console.log(msg.value.getConversionRate(s_priceFeed));
+        console.log(price);
+        scheduledTime = scheduledTime + block.timestamp;
         // Check minimum delay
         require(scheduledTime > block.timestamp + MIN_DELAY, "Scheduled time must meet minimum delay.");
 
@@ -242,11 +265,11 @@ contract DeliveryService {
     function getCoolingPeriod() external pure returns (uint256) {
         return COOLING_PERIOD;
     }
-    
+
     function getVersion() public view returns (uint256) {
         return s_priceFeed.version();
     }
-    
+
     function getPriceFeed() public view returns (AggregatorV3Interface) {
         return s_priceFeed;
     }

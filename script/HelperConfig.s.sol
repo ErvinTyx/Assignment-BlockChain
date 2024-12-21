@@ -4,7 +4,7 @@ pragma solidity ^0.8.18;
 import {Script} from "lib/forge-std/src/Script.sol";
 import {MockV3Aggregator} from "../test/mock/MockV3Aggregator.sol";
 
-contract HelperConfig is Script{
+contract HelperConfig is Script {
     //Constants
     uint8 public constant DECIMALS = 8;
     int256 public constant INITIAL_PRICE = 2000e8;
@@ -23,7 +23,7 @@ contract HelperConfig is Script{
             activeNetworkConfig = getSepoliaEthConfig();
         } else if (block.chainid == 1) {
             activeNetworkConfig = getMainNetEthConfig();
-        } else{
+        } else {
             activeNetworkConfig = getOrCreateAnvilEthCongif();
         }
     }
@@ -52,9 +52,7 @@ contract HelperConfig is Script{
         MockV3Aggregator mockV3Aggregator = new MockV3Aggregator(DECIMALS, INITIAL_PRICE);
         vm.stopBroadcast();
 
-        NetworkConfig memory anvilEthConfig = NetworkConfig({
-            priceFeed: address(mockV3Aggregator)
-        });
+        NetworkConfig memory anvilEthConfig = NetworkConfig({priceFeed: address(mockV3Aggregator)});
         return anvilEthConfig;
     }
 }
