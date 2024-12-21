@@ -33,6 +33,13 @@ import {PriceConverter} from "./PriceConverter.sol";
  */
 contract DeliveryService {
     error DeliveryService__AlreadyCancelled();
+    error DeliveryService__RefundFailed();
+    error DeliveryService__deliveryDeliveryWrongState();
+    error DeliveryService__AlreadyCancelledOrCompleted();
+    error DeliveryService__HaventFinishedScheduleTime();
+    error DeliveryService__CancelDeliveryWrongState();
+    error DeliveryService__NotInModifyState();
+    error DeliveryService__completeDeliveryWrongState();
 
     /* interfaces, libraries, contracts */
     // Contract variables
@@ -55,6 +62,7 @@ contract DeliveryService {
         string fromAddress;
         string toAddress;
         uint256 price;
+        uint256 payAmount;
         uint256 scheduledTime; // Scheduled execution time (timestamp)
         uint256 completedTime;
         uint256 modificationAttempts;
@@ -85,12 +93,14 @@ contract DeliveryService {
         string fromAddress,
         string toAddress,
         uint256 price,
+        uint256 payAmount,
         uint256 scheduledTime
     );
     event DeliveryModified(uint256 deliveryID, uint256 newScheduledTime, uint256 remainingAttempts);
     event DeliveryCancelled(uint256 deliveryID, address indexed customer);
     event DeliveryCompleted(uint256 deliveryID, address indexed customer);
     event DeliveryDelivered(uint256 deliveryID);
+    event OutForDelivery(uint256 deliveryID);
 
     // Modifiers
     modifier onlyCustomer(uint256 deliveryID) {
@@ -132,6 +142,10 @@ contract DeliveryService {
         require(newScheduledTime > block.timestamp + MIN_DELAY, "New scheduled time must meet minimum delay.");
 
         Delivery storage delivery = deliveries[deliveryID];
+
+        if (delivery.status != StatusDelivery.Scheduled) {
+            revert DeliveryService__NotInModifyState();
+        }
         delivery.scheduledTime = newScheduledTime;
         delivery.modificationAttempts++;
 
@@ -142,12 +156,12 @@ contract DeliveryService {
     function cancelDelivery(uint256 deliveryID) external onlyCustomer(deliveryID) canCancel(deliveryID) {
         Delivery storage delivery = deliveries[deliveryID];
 
-        // Ensure not already cancelled
-        if (delivery.status == StatusDelivery.Cancelled) revert DeliveryService__AlreadyCancelled();
+        // Check state is in scheduled state
+        if (delivery.status != StatusDelivery.Scheduled) revert DeliveryService__CancelDeliveryWrongState();
 
         // Cache `scheduledTime` and `price` for gas efficiency
         uint256 scheduledTime = delivery.scheduledTime;
-        uint256 price = delivery.price;
+        uint256 price = delivery.payAmount;
 
         // Mark as cancelled
         delivery.status = StatusDelivery.Cancelled;
@@ -157,41 +171,56 @@ contract DeliveryService {
             userCancellations[msg.sender]++;
             lastCancellationTime[msg.sender] = block.timestamp;
         }
-
-        emit DeliveryCancelled(deliveryID, msg.sender);
-
         // Refund calculation
         uint256 refund;
         uint256 timeRemaining = scheduledTime - block.timestamp;
 
-        if (timeRemaining <= 2 hours) {
+        if (timeRemaining > 2 hours) {
             refund = price; // Full refund
-        } else if (timeRemaining <= 3 hours) {
+        } else if (timeRemaining > 1 hours) {
             refund = (price * 75) / 100; // 75% refund
         } else {
             refund = (price * 50) / 100; // 50% refund
         }
-
         // Transfer the refund
-        payable(msg.sender).transfer(refund);
+        bool success = payable(msg.sender).send(refund);
+        if (!success) revert DeliveryService__RefundFailed();
+
+        emit DeliveryCancelled(deliveryID, msg.sender);
     }
 
     /// @notice Complete the delivery (can only be done after the scheduled time)
     function completeDelivery(uint256 deliveryID) external onlyCustomer(deliveryID) {
         Delivery storage delivery = deliveries[deliveryID];
-        require(delivery.status == StatusDelivery.Cancelled, "Delivery is cancelled.");
-        require(delivery.status == StatusDelivery.Delivery, "Delivery not delivered yet.");
+        if (delivery.status != StatusDelivery.DeliveryCompleted) {
+            revert DeliveryService__completeDeliveryWrongState();
+        }
 
         delivery.status = StatusDelivery.Completed;
 
         emit DeliveryCompleted(deliveryID, msg.sender);
     }
 
+    function outFordelivery(uint256 deliveryID) external onlyOwner {
+        Delivery storage delivery = deliveries[deliveryID];
+        if (delivery.status != StatusDelivery.Scheduled) {
+            revert DeliveryService__AlreadyCancelledOrCompleted();
+        }
+        if (delivery.scheduledTime > block.timestamp) {
+            revert DeliveryService__HaventFinishedScheduleTime();
+        }
+
+        delivery.status = StatusDelivery.Delivery;
+        emit OutForDelivery(deliveryID);
+    }
+
     /// @notice Delivered to the customer
     function deliveredDelivery(uint256 deliveryID) external onlyOwner {
         Delivery storage delivery = deliveries[deliveryID];
         require(block.timestamp >= delivery.scheduledTime, "Cannot complete before scheduled time.");
-        require(delivery.status == StatusDelivery.Completed, "Delivery already delivered.");
+        if (delivery.status != StatusDelivery.Delivery) {
+            revert DeliveryService__deliveryDeliveryWrongState();
+        }
         delivery.status = StatusDelivery.DeliveryCompleted;
         emit DeliveryDelivered(deliveryID);
     }
@@ -213,8 +242,6 @@ contract DeliveryService {
         payable
         returns (uint256)
     {
-        console.log(msg.value.getConversionRate(s_priceFeed));
-        console.log(price);
         scheduledTime = scheduledTime + block.timestamp;
         // Check minimum delay
         require(scheduledTime > block.timestamp + MIN_DELAY, "Scheduled time must meet minimum delay.");
@@ -233,6 +260,7 @@ contract DeliveryService {
             fromAddress: fromAddress,
             toAddress: toAddress,
             price: price,
+            payAmount: msg.value,
             scheduledTime: scheduledTime,
             completedTime: 0,
             modificationAttempts: 0,
@@ -240,7 +268,7 @@ contract DeliveryService {
             createdTime: block.timestamp
         });
 
-        emit DeliveryScheduled(deliveryID, msg.sender, fromAddress, toAddress, price, scheduledTime);
+        emit DeliveryScheduled(deliveryID, msg.sender, fromAddress, toAddress, price, msg.value, scheduledTime);
         return deliveryID;
     }
 
@@ -272,5 +300,9 @@ contract DeliveryService {
 
     function getPriceFeed() public view returns (AggregatorV3Interface) {
         return s_priceFeed;
+    }
+
+    function getOwner() public view returns (address) {
+        return i_ownerContract;
     }
 }

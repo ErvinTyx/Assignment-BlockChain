@@ -28,8 +28,6 @@ sudo apt-get install make
 git clone https://github.com/ErvinTyx/Assignment-BlockChain.git
 ```
 
-
-
 - installation libary on this project
 ```bash
 make build

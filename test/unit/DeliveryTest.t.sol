@@ -10,24 +10,20 @@ contract DeliveryTest is Test {
     DeliveryService public delivery;
     HelperConfig public helperConfig;
 
-    enum StatusDelivery {
-        Scheduled,
-        Cancelled,
-        Delivery,
-        DeliveryCompleted,
-        Completed
-    }
-
     event DeliveryScheduled(
         uint256 deliveryID,
         address indexed customer,
         string fromAddress,
         string toAddress,
         uint256 price,
+        uint256 payAmount,
         uint256 scheduledTime
     );
     event DeliveryModified(uint256 deliveryID, uint256 newScheduledTime, uint256 remainingAttempts);
     event DeliveryCancelled(uint256 deliveryID, address indexed customer);
+    event DeliveryCompleted(uint256 deliveryID, address indexed customer);
+    event DeliveryDelivered(uint256 deliveryID);
+    event OutForDelivery(uint256 deliveryID);
 
     string public constant FROM_ADDRESS = "PJ";
     string public constant TO_ADDRESS = "Seremban";
@@ -115,7 +111,9 @@ contract DeliveryTest is Test {
         newTimestamp = MIN_DELAY + 37;
         uint256 INITIAL_ID = 0;
         vm.expectEmit(true, false, false, true, address(delivery));
-        emit DeliveryScheduled(INITIAL_ID, CUSTOMER, FROM_ADDRESS, TO_ADDRESS, PRICE, newTimestamp + block.timestamp);
+        emit DeliveryScheduled(
+            INITIAL_ID, CUSTOMER, FROM_ADDRESS, TO_ADDRESS, PRICE, SEND_VALUE, newTimestamp + block.timestamp
+        );
         deliveryID = delivery.scheduleDelivery{value: SEND_VALUE}(FROM_ADDRESS, TO_ADDRESS, PRICE, newTimestamp);
     }
 
@@ -177,9 +175,6 @@ contract DeliveryTest is Test {
     function testCancelDeliveryRefund100Percent() public ForCancelDelivery {
         vm.prank(CUSTOMER);
         delivery.cancelDelivery(deliveryID);
-        // pay 5 ether but price is 25e7 and total money is 10 ether
-        // price for 1 ether is 2000usd
-        // so if price is 5usd also in 5e8 is 25e7 ether
         assertEq(10 ether, CUSTOMER.balance);
     }
 
@@ -189,21 +184,96 @@ contract DeliveryTest is Test {
 
         vm.prank(CUSTOMER);
         delivery.cancelDelivery(deliveryID);
-        // pay 5 ether but price is 25e7 and total money is 10 ether
-        // price for 1 ether is 2000usd
-        // so if price is 5usd also in 5e8 is 25e7 ether
-        assertEq(5 ether + (25e7 * 75 / 100), CUSTOMER.balance);
+        assertEq(9 ether + (1 ether * 75 / 100), CUSTOMER.balance);
     }
 
     function testCancelDeliveryRefund50Percent() public ForCancelDelivery {
         vm.warp(8 hours + block.timestamp + 1 minutes);
         vm.roll(block.number + 1);
-
         vm.prank(CUSTOMER);
         delivery.cancelDelivery(deliveryID);
-        // pay 5 ether but price is 25e7 and total money is 10 ether
-        // price for 1 ether is 2000usd
-        // so if price is 5usd also in 5e8 is 25e7 ether
-        assertEq(5 ether + (25e7 * 50 / 100), CUSTOMER.balance);
+        assertEq(9 ether + (1 ether * 50 / 100), CUSTOMER.balance);
+    }
+
+    function testdeliveredDeliveryCannotCompleteBeforeScheduledTime() public ScheduledDelivery {
+        vm.prank(delivery.getOwner());
+        vm.expectRevert();
+        delivery.deliveredDelivery(deliveryID);
+    }
+
+    function testdeliveredDeliveryNotOwner() public ScheduledDelivery {
+        vm.prank(CUSTOMER);
+        vm.expectRevert();
+        delivery.deliveredDelivery(deliveryID);
+    }
+
+    function testdeliveredDeliveryCompleted() public ScheduledDelivery {
+        vm.warp(4 hours);
+        vm.roll(block.number + 1);
+        
+        vm.prank(delivery.getOwner());
+        delivery.outFordelivery(deliveryID);
+        vm.prank(delivery.getOwner());
+        delivery.deliveredDelivery(deliveryID);
+        assert(delivery.getDelivery(deliveryID).status == DeliveryService.StatusDelivery.DeliveryCompleted);
+    }
+
+    function testdeliveredDeliveryEmits() public ScheduledDelivery {
+        vm.warp(4 hours);
+        vm.roll(block.number + 1);
+        vm.prank(delivery.getOwner());
+        delivery.outFordelivery(deliveryID);
+        vm.prank(delivery.getOwner());
+        vm.expectEmit(true, false, false, true, address(delivery));
+        emit DeliveryDelivered(deliveryID);
+        delivery.deliveredDelivery(deliveryID);
+    }
+
+    function testcompleteDeliveryStatusDeliveryCompleted() public ScheduledDelivery {
+        vm.warp(4 hours);
+        vm.roll(block.number + 1);
+
+        vm.prank(delivery.getOwner());
+        delivery.outFordelivery(deliveryID);
+
+        vm.prank(delivery.getOwner());
+        delivery.deliveredDelivery(deliveryID);
+
+        vm.prank(CUSTOMER);
+        delivery.completeDelivery(deliveryID);
+        assert(delivery.getDelivery(deliveryID).status == DeliveryService.StatusDelivery.Completed);
+    }
+
+    function testcompleteDeliveryStatusEmitComleted() public ScheduledDelivery {
+        vm.warp(4 hours);
+        vm.roll(block.number + 1);
+
+        vm.prank(delivery.getOwner());
+        delivery.outFordelivery(deliveryID);
+
+        vm.prank(delivery.getOwner());
+        delivery.deliveredDelivery(deliveryID);
+
+        vm.prank(CUSTOMER);
+        vm.expectEmit(true, false, false, true, address(delivery));
+        emit DeliveryCompleted(deliveryID, CUSTOMER);
+        delivery.completeDelivery(deliveryID);
+    }
+
+    function testOutFordelivery() public ScheduledDelivery {
+        vm.warp(4 hours);
+        vm.roll(block.number + 1);
+        vm.prank(delivery.getOwner());
+        delivery.outFordelivery(deliveryID);
+        assert(delivery.getDelivery(deliveryID).status == DeliveryService.StatusDelivery.Delivery);
+    }
+
+    function testOutFordeliveryEmits() public ScheduledDelivery {
+        vm.warp(4 hours);
+        vm.roll(block.number + 1);
+        vm.prank(delivery.getOwner());
+        vm.expectEmit(true, false, false, true, address(delivery));
+        emit OutForDelivery(deliveryID);
+        delivery.outFordelivery(deliveryID);
     }
 }
