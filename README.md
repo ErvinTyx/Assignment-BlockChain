@@ -62,12 +62,12 @@ git clone https://github.com/ErvinTyx/Assignment-BlockChain.git
 make build
 ```
 
-#### 7. Start a ***local node***
+#### 7. Start a ***local node*** 
 ``` bash
 anvil
 ```
 
-#### 8. To Deploy the script on anvil 
+#### 8. To Deploy the script on anvil **open another WSL Terminal**
 ```bash
 make deploy
 ```
