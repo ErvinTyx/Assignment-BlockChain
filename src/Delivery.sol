@@ -195,7 +195,7 @@ contract DeliveryService {
         if (delivery.status != StatusDelivery.DeliveryCompleted) {
             revert DeliveryService__completeDeliveryWrongState();
         }
-
+        delivery.completedTime = block.timestamp;
         delivery.status = StatusDelivery.Completed;
 
         emit DeliveryCompleted(deliveryID, msg.sender);
