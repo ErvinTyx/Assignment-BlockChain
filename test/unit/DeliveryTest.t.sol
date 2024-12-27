@@ -145,7 +145,7 @@ contract DeliveryTest is Test {
     function testModifyDeliveryEmits() public ScheduledDelivery {
         vm.prank(CUSTOMER);
         vm.expectEmit(true, false, false, true, address(delivery));
-        emit DeliveryModified(deliveryID, newTimestamp, MODIFICATION_LIMIT - 1);
+        emit DeliveryModified(deliveryID, newTimestamp + block.timestamp, MODIFICATION_LIMIT - 1);
         delivery.modifyDelivery(deliveryID, newTimestamp);
     }
 

@@ -139,6 +139,7 @@ contract DeliveryService {
         onlyCustomer(deliveryID)
         canModify(deliveryID)
     {
+        newScheduledTime = newScheduledTime + block.timestamp;
         require(newScheduledTime > block.timestamp + MIN_DELAY, "New scheduled time must meet minimum delay.");
 
         Delivery storage delivery = deliveries[deliveryID];
@@ -146,7 +147,7 @@ contract DeliveryService {
         if (delivery.status != StatusDelivery.Scheduled) {
             revert DeliveryService__NotInModifyState();
         }
-        delivery.scheduledTime = newScheduledTime + block.timestamp;
+        delivery.scheduledTime = newScheduledTime;
         delivery.modificationAttempts++;
 
         emit DeliveryModified(deliveryID, newScheduledTime, MODIFICATION_LIMIT - delivery.modificationAttempts);
