@@ -146,7 +146,7 @@ contract DeliveryService {
         if (delivery.status != StatusDelivery.Scheduled) {
             revert DeliveryService__NotInModifyState();
         }
-        delivery.scheduledTime = newScheduledTime;
+        delivery.scheduledTime = newScheduledTime + block.timestamp;
         delivery.modificationAttempts++;
 
         emit DeliveryModified(deliveryID, newScheduledTime, MODIFICATION_LIMIT - delivery.modificationAttempts);
