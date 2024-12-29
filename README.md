@@ -14,7 +14,7 @@
 - [***Quick Start***](#requirements-installation)
 - [***Why Foundry***](#why-choose-foundry)
 - [***Other Commands***](#Other-command)
-- [***References***]()
+- [***References***](#reference)
 
 
 
@@ -79,61 +79,61 @@ Foundry is a compelling choice for developing and testing smart contracts in Sol
 
 
 
-### **1. Speed and Efficiency**
+### ***1. Speed and Efficiency***
 - **Lightweight and Fast:** Foundry is known for its performance. It compiles and runs tests significantly faster than other frameworks like Hardhat or Truffle.
 - **Parallel Testing:** Foundry leverages Rust's performance to run tests in parallel, reducing testing time.
 
 
 
-### **2. Native Solidity Testing**
+### ***2. Native Solidity Testing***
 - **Solidity-first Approach:** Unlike frameworks that rely heavily on JavaScript or TypeScript for testing, Foundry allows developers to write tests directly in Solidity, ensuring seamless interaction with the contracts.
 - **Built-in Assertions:** Foundry includes built-in utilities for testing Solidity contracts, such as `expectRevert`, `expectEmit`, and other assert functions.
 
 
 
-### **3. Advanced Debugging Tools**
+### ***3. Advanced Debugging Tools***
 - **Gas Reports:** Provides detailed gas usage reports for each function and test, helping developers optimize smart contracts.
 - **Stack Traces:** Foundry includes clear and precise error messages with stack traces, making debugging easier.
 
 
 
-### **4. Cross-Platform and Interoperability**
+### ***4. Cross-Platform and Interoperability***
 - **Compatibility:** Foundry works well with existing tools like Hardhat, OpenZeppelin, and others, allowing easy integration into existing projects.
 - **Cross-Chain Testing:** Foundry supports testing on various Ethereum-compatible networks, including Layer 2s.
 
 
 
-### **5. Easy Setup and Usage**
+### ***5. Easy Setup and Usage***
 - **Simple Installation:** Foundry can be installed with a single command using `foundryup`, making it quick to set up.
 - **Command-Line Interface (CLI):** Offers intuitive commands like `forge build`, `forge test`, and `forge script`.
 
 
 
-### **6. Modular Tooling**
+### ***6. Modular Tooling***
 - **Forge:** For building, testing, and interacting with smart contracts.
 - **Cast:** For interacting with the Ethereum blockchain directly from the command line.
 - **Anvil:** A local Ethereum development chain similar to Ganache.
 
 
 
-### **7. Security and Auditing**
+### ***7. Security and Auditing***
 - **Fuzz Testing:** Built-in support for fuzz testing helps identify edge cases and potential vulnerabilities.
 - **Property-based Testing:** Allows developers to define properties that should always hold true for their contracts.
 
 
 
-### **8. Open Source and Community-Driven**
+### ***8. Open Source and Community-Driven***
 - **Actively Maintained:** Foundry is actively maintained and has a growing community, ensuring regular updates and improvements.
 - **Developer-Focused:** Built by Paradigm, Foundry incorporates feedback from developers to meet real-world requirements.
 
 
 
-### **9. Robust Scripting**
+### ***9. Robust Scripting***
 - Foundry enables scripting in Solidity or Yul, making deployment and automation more straightforward compared to relying on external scripting languages.
 
 
 
-### **10. Future-Ready**
+### ***10. Future-Ready***
 - **Supports the Latest EIPs:** Foundry is often quick to adopt new Ethereum Improvement Proposals (EIPs) and integrates them into its workflow.
 ---
 ---
