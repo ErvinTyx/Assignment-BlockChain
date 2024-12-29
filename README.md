@@ -133,7 +133,7 @@ project/
 - Real-time ETH/USD price integration
 - Improve UI/UX with loading indicators.
 - Enhanced error handling for better user feedback.
-- Distance count automatically for the system. 
+- Distance count automatically for the system.
 
 
 
