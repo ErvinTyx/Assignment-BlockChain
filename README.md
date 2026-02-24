@@ -1,14 +1,14 @@
 # Asignment Blockchain
+Gagamove is a decentralized delivery service platform controlled by a TimeLock smart contract that enables secure, efficient, and transparent scheduling of delivery-related transactions. The dApp can ensure that deliveries and associated actions such as payment releases, order confirmations or status updates are carried out only after a certain amount of time has passed.
 
-    Gagamove is a decentralized delivery service platform controlled by a TimeLock smart contract that enables secure, efficient, and transparent scheduling of delivery-related transactions. The dApp can ensure that deliveries and associated actions such as payment releases, order confirmations or status updates are carried out only after a certain amount of time has passed.
+The TimeLock smart contract is the heart of the system that enables users to schedule future transactions while also providing advanced features like transaction cancellation and parameter modifications before execution. Each transaction is safely locked until the specified release time, preventing premature execution and increasing delivery reliability.
 
-	The TimeLock smart contract is the heart of the system that enables users to schedule future transactions while also providing advanced features like transaction cancellation and parameter modifications before execution. Each transaction is safely locked until the specified release time, preventing premature execution and increasing delivery reliability.
+The platform’s user interface displays queued transactions with detailed information, such as the contract address, function calls, input parameters and execution dates. This transparency allows users to easily track and manage their deliveries. Furthermore, multi-signature authentication is available for transactions involving high-value assets, which adds additional layers of security by requiring consensus from many parties before execution.
 
-	The platform’s user interface displays queued transactions with detailed information, such as the contract address, function calls, input parameters and execution dates. This transparency allows users to easily track and manage their deliveries. Furthermore, multi-signature authentication is available for transactions involving high-value assets, which adds additional layers of security by requiring consensus from many parties before execution.
+The dApp can emit events such as “queued”, “executed” and “canceled”, allowing for real-time notifications on the status of delivery transactions. This ensures that all actions are traceable and verifiable, which builds confidence among users.
 
-	The dApp can emit events such as “queued”, “executed” and “canceled”, allowing for real-time notifications on the status of delivery transactions. This ensures that all actions are traceable and verifiable, which builds confidence among users.
+By integrating TimeLock technology with blockchain’s immutable and transparent nature, the dApp enhances delivery services, providing a dependable and user-friendly solution for time-sensitive tasks.
 
-	By integrating TimeLock technology with blockchain’s immutable and transparent nature, the dApp enhances delivery services, providing a dependable and user-friendly solution for time-sensitive tasks.
 ---
 # Overview
 - [***Quick Start***](#requirements-installation)
